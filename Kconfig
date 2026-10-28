@@ -1,0 +1,281 @@
+# RT-Thread package index configuration for WS2812B.
+menuconfig PKG_USING_WS2812B
+    bool "ws2812b: SPI driven addressable LEDs"
+    depends on RT_USING_SPI
+    default n
+
+if PKG_USING_WS2812B
+    config PKG_WS2812B_PATH
+        string
+        default "/packages/peripherals/ws2812b"
+
+    choice
+        prompt "Version"
+        default PKG_USING_WS2812B_LATEST_VERSION
+        config PKG_USING_WS2812B_LATEST_VERSION
+            bool "latest"
+    endchoice
+
+    config PKG_WS2812B_VER
+        string
+        default "latest" if PKG_USING_WS2812B_LATEST_VERSION
+
+    choice
+        prompt "Memory allocation backend"
+        default WS2812B_MEMORY_STATIC
+        config WS2812B_MEMORY_STATIC
+            bool "Static object, pixel and SPI-frame pools"
+        config WS2812B_MEMORY_DYNAMIC
+            bool "RT-Thread heap for all devices"
+            depends on RT_USING_HEAP
+    endchoice
+
+    config WS2812B_CHECK_PARAMETERS
+        bool "Check public parameters and memory boundaries"
+        default y
+
+    config WS2812B_CHECK_EXTENDED
+        bool "Check physical waveform timing at initialization"
+        depends on WS2812B_CHECK_PARAMETERS
+        default n
+
+    config WS2812B_MAX_DEVICES
+        int "Device registry capacity"
+        # The first applicable range bounds the enabled device count, including sparse slots.
+        range 3 32 if WS2812B_KCONFIG_DEVICE0 && WS2812B_KCONFIG_DEVICE1 && WS2812B_KCONFIG_DEVICE2
+        range 2 32 if WS2812B_KCONFIG_DEVICE0 && WS2812B_KCONFIG_DEVICE1
+        range 2 32 if WS2812B_KCONFIG_DEVICE0 && WS2812B_KCONFIG_DEVICE2
+        range 2 32 if WS2812B_KCONFIG_DEVICE1 && WS2812B_KCONFIG_DEVICE2
+        range 1 32
+        default 3
+        help
+          The configured registry capacity must be at least the number of
+          enabled named device slots. Reserve additional entries for devices
+          created manually through the C API.
+
+    config WS2812B_KCONFIG_SLOT_COUNT
+        int "Number of named menuconfig device slots"
+        range 1 3
+        default 3
+
+    config WS2812B_USING_KCONFIG_DEVICES
+        bool "Configure device slots in menuconfig"
+        default y
+
+    if WS2812B_MEMORY_STATIC
+        config WS2812B_STATIC_MAX_CLOCKS_PER_BIT
+            int "Maximum SPI clocks per LED bit for automatic frame capacities"
+            range 3 96
+            default 12
+
+        config WS2812B_STATIC_EXTRA_PIXELS
+            int "Extra static RGB pixels for devices created by C API"
+            range 0 65535
+            default 0
+
+        config WS2812B_STATIC_EXTRA_FRAME_BYTES
+            int "Extra static SPI bytes for C API devices"
+            range 0 2097152
+            default 0
+    endif
+
+    choice
+        prompt "SPI waveform timing strategy"
+        default WS2812B_TIMING_DIRECT
+        config WS2812B_TIMING_DIRECT
+            bool "Use configured clocks directly (no table/search)"
+        config WS2812B_TIMING_TABLE
+            bool "Find SPI timing in the preset table"
+        config WS2812B_TIMING_SEARCH
+            bool "Preset table, then calculate fallback timing"
+    endchoice
+
+    choice
+        prompt "SPI waveform encoder"
+        default WS2812B_ENCODER_FAST_ONLY
+        config WS2812B_ENCODER_FAST_ONLY
+            bool "Fast four-bit LUT only (even clocks per bit)"
+        config WS2812B_ENCODER_AUTO
+            bool "Fast LUT with generic bit encoder fallback"
+    endchoice
+
+    config WS2812B_FAST_MAX_CLOCKS_PER_BIT
+        int "Maximum SPI clocks per LED bit for fast nibble LUT"
+        range 4 96
+        default 12
+
+    config WS2812B_ENCODER_SELF_CHECK
+        bool "Compare fast and generic encoders at initialization"
+        default n
+
+
+    # Named device slots are created explicitly by ws2812_init_all().
+    if WS2812B_USING_KCONFIG_DEVICES
+
+        menuconfig WS2812B_KCONFIG_DEVICE0
+            bool "Configure strip slot 0"
+            default y
+
+        if WS2812B_KCONFIG_DEVICE0
+            config WS2812B_DEV0_BUS
+                string "RT SPI bus name"
+                default "spi1"
+            config WS2812B_DEV0_NAME
+                string "RT SPI device name"
+                default "spi10"
+            config WS2812B_DEV0_LEDS
+                int "Number of LED pixels"
+                range 1 65535
+                default 27
+            config WS2812B_DEV0_HZ
+                int "Actual SPI clock in Hz (the board must deliver it)"
+                range 1 100000000
+                default 9000000
+            config WS2812B_DEV0_VARIANT
+                int "LED timing version: 0 classic, 1 V5"
+                range 0 1
+                default 1
+            config WS2812B_DEV0_RESET_US
+                int "Reset-low interval (microseconds)"
+                range 60 2000 if WS2812B_DEV0_VARIANT = 0
+                range 300 2000 if WS2812B_DEV0_VARIANT = 1
+                default 300
+            config WS2812B_DEV0_CLOCKS_PER_BIT
+                int "SPI clocks per logical WS2812 bit"
+                range 3 96
+                default 12
+            config WS2812B_DEV0_T0H
+                int "SPI high clocks representing logic 0"
+                range 1 95
+                default 3
+            config WS2812B_DEV0_T1H
+                int "SPI high clocks representing logic 1"
+                range 1 95
+                default 6
+            if WS2812B_MEMORY_STATIC
+                config WS2812B_DEV0_FRAME_BYTES
+                    int "Reserved static SPI frame size (0=automatic)"
+                    range 0 2097152
+                    default 0
+            endif
+
+        endif
+
+        menuconfig WS2812B_KCONFIG_DEVICE1
+            bool "Configure strip slot 1"
+            depends on WS2812B_KCONFIG_SLOT_COUNT >= 2
+            default n
+
+        if WS2812B_KCONFIG_DEVICE1
+            config WS2812B_DEV1_BUS
+                string "RT SPI bus name"
+                default "spi2"
+            config WS2812B_DEV1_NAME
+                string "RT SPI device name"
+                default "spi20"
+            config WS2812B_DEV1_LEDS
+                int "Number of LED pixels"
+                range 1 65535
+                default 40
+            config WS2812B_DEV1_HZ
+                int "Actual SPI clock in Hz (the board must deliver it)"
+                range 1 100000000
+                default 9000000
+            config WS2812B_DEV1_VARIANT
+                int "LED timing version: 0 classic, 1 V5"
+                range 0 1
+                default 1
+            config WS2812B_DEV1_RESET_US
+                int "Reset-low interval (microseconds)"
+                range 60 2000 if WS2812B_DEV1_VARIANT = 0
+                range 300 2000 if WS2812B_DEV1_VARIANT = 1
+                default 300
+            config WS2812B_DEV1_CLOCKS_PER_BIT
+                int "SPI clocks per logical WS2812 bit"
+                range 3 96
+                default 12
+            config WS2812B_DEV1_T0H
+                int "SPI high clocks representing logic 0"
+                range 1 95
+                default 3
+            config WS2812B_DEV1_T1H
+                int "SPI high clocks representing logic 1"
+                range 1 95
+                default 6
+            if WS2812B_MEMORY_STATIC
+                config WS2812B_DEV1_FRAME_BYTES
+                    int "Reserved static SPI frame size (0=automatic)"
+                    range 0 2097152
+                    default 0
+            endif
+
+        endif
+
+        menuconfig WS2812B_KCONFIG_DEVICE2
+            bool "Configure strip slot 2"
+            depends on WS2812B_KCONFIG_SLOT_COUNT >= 3
+            default n
+
+        if WS2812B_KCONFIG_DEVICE2
+            config WS2812B_DEV2_BUS
+                string "RT SPI bus name"
+                default "spi3"
+            config WS2812B_DEV2_NAME
+                string "RT SPI device name"
+                default "spi30"
+            config WS2812B_DEV2_LEDS
+                int "Number of LED pixels"
+                range 1 65535
+                default 40
+            config WS2812B_DEV2_HZ
+                int "Actual SPI clock in Hz (the board must deliver it)"
+                range 1 100000000
+                default 9000000
+            config WS2812B_DEV2_VARIANT
+                int "LED timing version: 0 classic, 1 V5"
+                range 0 1
+                default 1
+            config WS2812B_DEV2_RESET_US
+                int "Reset-low interval (microseconds)"
+                range 60 2000 if WS2812B_DEV2_VARIANT = 0
+                range 300 2000 if WS2812B_DEV2_VARIANT = 1
+                default 300
+            config WS2812B_DEV2_CLOCKS_PER_BIT
+                int "SPI clocks per logical WS2812 bit"
+                range 3 96
+                default 12
+            config WS2812B_DEV2_T0H
+                int "SPI high clocks representing logic 0"
+                range 1 95
+                default 3
+            config WS2812B_DEV2_T1H
+                int "SPI high clocks representing logic 1"
+                range 1 95
+                default 6
+            if WS2812B_MEMORY_STATIC
+                config WS2812B_DEV2_FRAME_BYTES
+                    int "Reserved static SPI frame size (0=automatic)"
+                    range 0 2097152
+                    default 0
+            endif
+
+        endif
+    endif
+
+    config WS2812B_USING_GAMMA
+        bool "Enable optional Gamma compensation"
+        default n
+
+    if WS2812B_USING_GAMMA
+        config WS2812B_GAMMA_22
+            bool "Include Gamma 2.2 flash lookup table"
+            default y
+        config WS2812B_GAMMA_28
+            bool "Include Gamma 2.8 flash lookup table"
+            default y
+        config WS2812B_GAMMA_COMPUTE
+            bool "Allow per-device runtime Gamma exponent calculation (libm)"
+            default n
+    endif
+
+endif
