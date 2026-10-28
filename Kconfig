@@ -501,4 +501,8 @@ if PKG_USING_WS2812B
             default n
     endif
 
+    config WS2812B_USING_MSH
+        bool "Enable optional WS2812B MSH effect commands"
+        depends on WS2812B_USING_EFFECT && WS2812B_USING_KCONFIG_DEVICES && RT_USING_FINSH
+        default n
 endif

@@ -25,6 +25,8 @@ if GetDepend(['WS2812B_USING_EFFECT']):
         if GetDepend([symbol]):
             src += ['effect/ws2812_effect_%s.c' % name]
 
+    if GetDepend(['WS2812B_USING_MSH']):
+        src += ['ws2812b_msh.c']
 
 CPPPATH = [cwd, cwd + '/effect', cwd + '/gamma']
 group = DefineGroup('ws2812b', src, depend=['PKG_USING_WS2812B'], CPPPATH=CPPPATH, LIBS=libm)
