@@ -1,6 +1,10 @@
 # WS2812B SPI 灯带软件包
 
-本软件包通过 RT-Thread SPI 设备输出 WS2812B 的 GRB 串行码，支持多路灯带、静态或动态内存管理、可配置 SPI 波形编码与可选 Gamma 校正。软件包不负责板级 SPI/CS/GPIO 初始化，也不创建业务线程。
+本软件包通过 RT-Thread SPI 设备输出 WS2812B 的 GRB 串行码，支持多路灯带、静态或动态内存管理、可配置 SPI 波形编码、可选 Gamma 校正及可注册灯效。软件包不负责板级 SPI/CS/GPIO 初始化，也不创建业务线程。
+
+## 文档
+
+- [WS2812B 单线协议与 SPI 波形编码原理](doc/ws2812b-spi-theory.md)：说明协议时序、GRB 位序、nibble LUT 与 RESET 帧计算。
 
 ## 安装和初始化
 
@@ -29,6 +33,16 @@
 ## Gamma 与亮度
 
 亮度先对 RGB 各通道进行整数缩放，然后应用可选 Gamma。`WS2812B_GAMMA_22` 和 `WS2812B_GAMMA_28` 使用静态查表；开启 `WS2812B_GAMMA_COMPUTE` 后可用 `ws2812_set_gamma_custom(dev, gamma_x100)` 根据 50～500 的指数×100 生成每设备 LUT，该配置需要链接 `libm`。默认 Gamma 为 `WS2812_GAMMA_NONE`。
+
+## 灯效框架
+
+在 `menuconfig` 开启 `WS2812B_USING_EFFECT` 后，`SConscript` 只编译对应启用的内置方法：`SOLID`、`BLINK`、`BREATHE`、`GRADIENT`、`GRADATION`、`CHASE` 和 `SEQUENCE`。每路灯带有独立的效果状态；只有一个当前效果，业务负责告警临时效果的切换与恢复。
+
+初始化顺序为：板级 SPI 设备准备好后，调用 `ws2812_effect_register_builtins()` 注册方法，然后 `ws2812_init_all()` 创建设备，再 `ws2812_effect_init_kconfig()` 应用各槽默认效果。应用自己的任务或事件循环定期调用 `ws2812_effect_poll_all(rt_tick_get())`；软件包不自动启动任务或轮询。更改灯效与轮询必须由应用在同一个受控上下文中串行执行。
+
+内置灯效的 ID 由当前编译启用的枚举项连续确定；Kconfig 的初始单选菜单借助隐藏 `WS2812B_DEVn_INITIAL_KIND` 编译期转换到当前 ID，无需运行时查找。每个设备槽可以选择 `No initial effect`，应用之后再通过 API 选择灯效。`SEQUENCE` 的步骤在 `ws2812_effect_start_sequence()` 返回前复制到设备内部存储，不支持将其作为 Kconfig 默认方法。
+
+`BLINK` 的完整周期需为不小于 2 的偶数 Tick。Kconfig 默认 BLINK 使用奇数周期时会触发 C99 编译期数组长度断言；启用 `WS2812B_CHECK_PARAMETERS` 后，运行时奇数周期返回 `-RT_EINVAL`。按需通过 `WS2812B_EFFECT_CUSTOM_SLOTS` 预留自定义效果方法 ID 槽。
 
 ## 接入边界
 

@@ -108,8 +108,57 @@ if PKG_USING_WS2812B
         bool "Compare fast and generic encoders at initialization"
         default n
 
+    config WS2812B_USING_EFFECT
+        bool "Enable effect-method registration and execution"
+        default n
 
-    # Named device slots are created explicitly by ws2812_init_all().
+    if WS2812B_USING_EFFECT
+        config WS2812B_EFFECT_CUSTOM_SLOTS
+            int "Additional slots for custom effect methods"
+            range 0 248
+            default 0
+            help
+              Built-in methods are assigned contiguous IDs at compile time.
+              Reserve extra slots only when registering custom methods.
+
+        config WS2812B_EFFECT_STATE_BYTES
+            int "Per-device private bytes per active effect"
+            range 16 512
+            default 64
+
+        config WS2812B_EFFECT_MAX_STEPS
+            int "Maximum color sequence steps (per device)"
+            range 1 32
+            default 16
+
+        config WS2812B_EFFECT_SOLID
+            bool "Solid color"
+            default y
+        config WS2812B_EFFECT_BLINK
+            bool "Blink"
+            default y
+            help
+              BLINK splits its Tick period into two equal integer halves.
+              Use even periods of at least 2 ticks for this method.
+        config WS2812B_EFFECT_BREATHE
+            bool "Breathe"
+            default n
+        config WS2812B_EFFECT_GRADIENT
+            bool "Whole-strip fade between two colors"
+            default n
+        config WS2812B_EFFECT_GRADATION
+            bool "Spatial RGB gradation changing over time"
+            default y
+        config WS2812B_EFFECT_CHASE
+            bool "Chase"
+            default n
+        config WS2812B_EFFECT_SEQUENCE
+            bool "Sequence of colors with Tick durations"
+            default y
+    endif
+
+    # Initial methods are applied explicitly by ws2812_effect_init_kconfig().
+    # The package never starts a thread or polls automatically.
     if WS2812B_USING_KCONFIG_DEVICES
 
         menuconfig WS2812B_KCONFIG_DEVICE0
@@ -159,6 +208,64 @@ if PKG_USING_WS2812B
                     default 0
             endif
 
+            if WS2812B_USING_EFFECT
+                choice
+                    prompt "Initial effect for device slot 0"
+                    default WS2812B_DEV0_INITIAL_SOLID if WS2812B_EFFECT_SOLID
+                    default WS2812B_DEV0_INITIAL_GRADATION if WS2812B_EFFECT_GRADATION
+                    default WS2812B_DEV0_INITIAL_BLINK if WS2812B_EFFECT_BLINK
+                    default WS2812B_DEV0_INITIAL_BREATHE if WS2812B_EFFECT_BREATHE
+                    default WS2812B_DEV0_INITIAL_GRADIENT if WS2812B_EFFECT_GRADIENT
+                    default WS2812B_DEV0_INITIAL_CHASE if WS2812B_EFFECT_CHASE
+                    default WS2812B_DEV0_INITIAL_NONE
+                    config WS2812B_DEV0_INITIAL_SOLID
+                        bool "Solid color"
+                        depends on WS2812B_EFFECT_SOLID
+                    config WS2812B_DEV0_INITIAL_BLINK
+                        bool "Blink"
+                        depends on WS2812B_EFFECT_BLINK
+                    config WS2812B_DEV0_INITIAL_BREATHE
+                        bool "Breathe"
+                        depends on WS2812B_EFFECT_BREATHE
+                    config WS2812B_DEV0_INITIAL_GRADIENT
+                        bool "Temporal gradient"
+                        depends on WS2812B_EFFECT_GRADIENT
+                    config WS2812B_DEV0_INITIAL_CHASE
+                        bool "Chase"
+                        depends on WS2812B_EFFECT_CHASE
+                    config WS2812B_DEV0_INITIAL_GRADATION
+                        bool "Spatial gradation"
+                        depends on WS2812B_EFFECT_GRADATION
+                    config WS2812B_DEV0_INITIAL_NONE
+                        bool "No initial effect (start in application)"
+                endchoice
+
+                # Hidden stable choice code, not the densely assigned runtime method ID.
+                config WS2812B_DEV0_INITIAL_KIND
+                    int
+                    default 1 if WS2812B_DEV0_INITIAL_SOLID
+                    default 2 if WS2812B_DEV0_INITIAL_BLINK
+                    default 3 if WS2812B_DEV0_INITIAL_BREATHE
+                    default 4 if WS2812B_DEV0_INITIAL_GRADIENT
+                    default 5 if WS2812B_DEV0_INITIAL_CHASE
+                    default 6 if WS2812B_DEV0_INITIAL_GRADATION
+                    default 0
+
+                config WS2812B_DEV0_INITIAL_COLOR
+                    hex "Initial effect foreground RGB888 for device slot 0"
+                    default 0x501900
+                config WS2812B_DEV0_INITIAL_BACKGROUND
+                    hex "Initial effect background RGB888 for device slot 0"
+                    default 0x000000
+                config WS2812B_DEV0_INITIAL_PERIOD_TICKS
+                    int "Initial effect period in RT-Thread ticks for device slot 0"
+                    range 2 65535
+                    default 20
+                    help
+                      BLINK requires an even period (2, 4, 6, ... ticks).
+                      An odd value with BLINK selected causes a compile-time
+                      error. Other effect methods may use odd periods.
+            endif
         endif
 
         menuconfig WS2812B_KCONFIG_DEVICE1
@@ -209,6 +316,64 @@ if PKG_USING_WS2812B
                     default 0
             endif
 
+            if WS2812B_USING_EFFECT
+                choice
+                    prompt "Initial effect for device slot 1"
+                    default WS2812B_DEV1_INITIAL_GRADATION if WS2812B_EFFECT_GRADATION
+                    default WS2812B_DEV1_INITIAL_SOLID if WS2812B_EFFECT_SOLID
+                    default WS2812B_DEV1_INITIAL_BLINK if WS2812B_EFFECT_BLINK
+                    default WS2812B_DEV1_INITIAL_BREATHE if WS2812B_EFFECT_BREATHE
+                    default WS2812B_DEV1_INITIAL_GRADIENT if WS2812B_EFFECT_GRADIENT
+                    default WS2812B_DEV1_INITIAL_CHASE if WS2812B_EFFECT_CHASE
+                    default WS2812B_DEV1_INITIAL_NONE
+                    config WS2812B_DEV1_INITIAL_SOLID
+                        bool "Solid color"
+                        depends on WS2812B_EFFECT_SOLID
+                    config WS2812B_DEV1_INITIAL_BLINK
+                        bool "Blink"
+                        depends on WS2812B_EFFECT_BLINK
+                    config WS2812B_DEV1_INITIAL_BREATHE
+                        bool "Breathe"
+                        depends on WS2812B_EFFECT_BREATHE
+                    config WS2812B_DEV1_INITIAL_GRADIENT
+                        bool "Temporal gradient"
+                        depends on WS2812B_EFFECT_GRADIENT
+                    config WS2812B_DEV1_INITIAL_CHASE
+                        bool "Chase"
+                        depends on WS2812B_EFFECT_CHASE
+                    config WS2812B_DEV1_INITIAL_GRADATION
+                        bool "Spatial gradation"
+                        depends on WS2812B_EFFECT_GRADATION
+                    config WS2812B_DEV1_INITIAL_NONE
+                        bool "No initial effect (start in application)"
+                endchoice
+
+                # Hidden stable choice code, not the densely assigned runtime method ID.
+                config WS2812B_DEV1_INITIAL_KIND
+                    int
+                    default 1 if WS2812B_DEV1_INITIAL_SOLID
+                    default 2 if WS2812B_DEV1_INITIAL_BLINK
+                    default 3 if WS2812B_DEV1_INITIAL_BREATHE
+                    default 4 if WS2812B_DEV1_INITIAL_GRADIENT
+                    default 5 if WS2812B_DEV1_INITIAL_CHASE
+                    default 6 if WS2812B_DEV1_INITIAL_GRADATION
+                    default 0
+
+                config WS2812B_DEV1_INITIAL_COLOR
+                    hex "Initial effect foreground RGB888 for device slot 1"
+                    default 0x501900
+                config WS2812B_DEV1_INITIAL_BACKGROUND
+                    hex "Initial effect background RGB888 for device slot 1"
+                    default 0x000000
+                config WS2812B_DEV1_INITIAL_PERIOD_TICKS
+                    int "Initial effect period in RT-Thread ticks for device slot 1"
+                    range 2 65535
+                    default 20
+                    help
+                      BLINK requires an even period (2, 4, 6, ... ticks).
+                      An odd value with BLINK selected causes a compile-time
+                      error. Other effect methods may use odd periods.
+            endif
         endif
 
         menuconfig WS2812B_KCONFIG_DEVICE2
@@ -259,6 +424,64 @@ if PKG_USING_WS2812B
                     default 0
             endif
 
+            if WS2812B_USING_EFFECT
+                choice
+                    prompt "Initial effect for device slot 2"
+                    default WS2812B_DEV2_INITIAL_SOLID if WS2812B_EFFECT_SOLID
+                    default WS2812B_DEV2_INITIAL_GRADATION if WS2812B_EFFECT_GRADATION
+                    default WS2812B_DEV2_INITIAL_BLINK if WS2812B_EFFECT_BLINK
+                    default WS2812B_DEV2_INITIAL_BREATHE if WS2812B_EFFECT_BREATHE
+                    default WS2812B_DEV2_INITIAL_GRADIENT if WS2812B_EFFECT_GRADIENT
+                    default WS2812B_DEV2_INITIAL_CHASE if WS2812B_EFFECT_CHASE
+                    default WS2812B_DEV2_INITIAL_NONE
+                    config WS2812B_DEV2_INITIAL_SOLID
+                        bool "Solid color"
+                        depends on WS2812B_EFFECT_SOLID
+                    config WS2812B_DEV2_INITIAL_BLINK
+                        bool "Blink"
+                        depends on WS2812B_EFFECT_BLINK
+                    config WS2812B_DEV2_INITIAL_BREATHE
+                        bool "Breathe"
+                        depends on WS2812B_EFFECT_BREATHE
+                    config WS2812B_DEV2_INITIAL_GRADIENT
+                        bool "Temporal gradient"
+                        depends on WS2812B_EFFECT_GRADIENT
+                    config WS2812B_DEV2_INITIAL_CHASE
+                        bool "Chase"
+                        depends on WS2812B_EFFECT_CHASE
+                    config WS2812B_DEV2_INITIAL_GRADATION
+                        bool "Spatial gradation"
+                        depends on WS2812B_EFFECT_GRADATION
+                    config WS2812B_DEV2_INITIAL_NONE
+                        bool "No initial effect (start in application)"
+                endchoice
+
+                # Hidden stable choice code, not the densely assigned runtime method ID.
+                config WS2812B_DEV2_INITIAL_KIND
+                    int
+                    default 1 if WS2812B_DEV2_INITIAL_SOLID
+                    default 2 if WS2812B_DEV2_INITIAL_BLINK
+                    default 3 if WS2812B_DEV2_INITIAL_BREATHE
+                    default 4 if WS2812B_DEV2_INITIAL_GRADIENT
+                    default 5 if WS2812B_DEV2_INITIAL_CHASE
+                    default 6 if WS2812B_DEV2_INITIAL_GRADATION
+                    default 0
+
+                config WS2812B_DEV2_INITIAL_COLOR
+                    hex "Initial effect foreground RGB888 for device slot 2"
+                    default 0x501900
+                config WS2812B_DEV2_INITIAL_BACKGROUND
+                    hex "Initial effect background RGB888 for device slot 2"
+                    default 0x000000
+                config WS2812B_DEV2_INITIAL_PERIOD_TICKS
+                    int "Initial effect period in RT-Thread ticks for device slot 2"
+                    range 2 65535
+                    default 20
+                    help
+                      BLINK requires an even period (2, 4, 6, ... ticks).
+                      An odd value with BLINK selected causes a compile-time
+                      error. Other effect methods may use odd periods.
+            endif
         endif
     endif
 
